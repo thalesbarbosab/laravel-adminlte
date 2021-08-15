@@ -193,7 +193,7 @@ return [
     'register_url' => 'register',
     'password_reset_url' => 'password/reset',
     'password_email_url' => 'password/email',
-    'profile_url' => 'profile',
+    //'profile_url' => 'profile',
 
     /*
     |--------------------------------------------------------------------------
@@ -229,6 +229,20 @@ return [
             'search' => false,
             'topnav' => true,
         ],
+        [
+            'text' => 'Home',
+            'url'  => 'home',
+            'icon' => 'fas fa-house-user',
+        ],
+        [
+            'text' => 'Dashboard',
+            'url'  => 'dashboard',
+            'icon' => 'fas fa-tachometer-alt',
+            //'can'  => 'is_admin',
+        ],
+
+        /*
+        //admin lte default menu
         [
             'text' => 'blog',
             'url'  => 'admin/blog',
@@ -306,6 +320,7 @@ return [
             'icon_color' => 'cyan',
             'url'        => '#',
         ],
+        */
     ],
 
     /*
