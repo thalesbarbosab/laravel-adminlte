@@ -55,7 +55,7 @@ class HomeController extends Controller
 
     public function menu($id)
     {
-        $menu = $this->menu->findOrFail($id);
+        $menu = $this->menu->where('actived',true)->where('id',$id)->firstOrFail();
         return view('menu',['menu'=>$menu]);
     }
 
