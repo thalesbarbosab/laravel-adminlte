@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Menu;
 use App\Models\User;
 use stdClass;
 
@@ -13,11 +14,13 @@ class HomeController extends Controller
      * @return void
      */
     protected $user;
+    protected $menu;
 
-    public function __construct(User $user)
+    public function __construct(User $user, Menu $menu)
     {
         $this->middleware('auth');
         $this->user = $user;
+        $this->menu = $menu;
     }
 
     /**
@@ -48,6 +51,12 @@ class HomeController extends Controller
 
         return view('dashboard',['users'=>$users,
                             'user_counters'=>$user_counters]);
+    }
+
+    public function menu($id)
+    {
+        $menu = $this->menu->findOrFail($id);
+        return view('menu',['menu'=>$menu]);
     }
 
 

@@ -230,15 +230,22 @@ return [
             'topnav' => true,
         ],
         [
+            'key'  => 'home',
             'text' => 'Home',
             'url'  => 'home',
             'icon' => 'fas fa-house-user',
         ],
         [
+            'key'  => 'dashboard',
             'text' => 'Dashboard',
             'url'  => 'dashboard',
             'icon' => 'fas fa-tachometer-alt',
             //'can'  => 'is_admin',
+        ],
+        [
+            'key'  => 'dynamic_menus',
+            'text' => 'dynamic_menus',
+            'icon' => 'fas fa-ellipsis-v',
         ],
 
         /*
