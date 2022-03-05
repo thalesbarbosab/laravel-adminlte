@@ -1,15 +1,15 @@
-/*! KeyTable 2.5.1
- * ©2009-2019 SpryMedia Ltd - datatables.net/license
+/*! KeyTable 2.6.4
+ * ©2009-2021 SpryMedia Ltd - datatables.net/license
  */
 
 /**
  * @summary     KeyTable
  * @description Spreadsheet like keyboard navigation for DataTables
- * @version     2.5.1
+ * @version     2.6.4
  * @file        dataTables.keyTable.js
  * @author      SpryMedia Ltd (www.sprymedia.co.uk)
  * @contact     www.sprymedia.co.uk/contact
- * @copyright   Copyright 2009-2019 SpryMedia Ltd.
+ * @copyright   Copyright 2009-2021 SpryMedia Ltd.
  *
  * This source file is free software, available under the following license:
  *   MIT license - http://datatables.net/license/mit
@@ -50,6 +50,7 @@
 'use strict';
 var DataTable = $.fn.dataTable;
 var namespaceCounter = 0;
+var editorNamespaceCounter = 0;
 
 
 var KeyTable = function ( dt, opts ) {
@@ -84,7 +85,10 @@ var KeyTable = function ( dt, opts ) {
 		lastFocus: null,
 
 		/** @type {string} Unique namespace per instance */
-		namespace: '.keyTable-'+(namespaceCounter++)
+		namespace: '.keyTable-'+(namespaceCounter++),
+
+		/** @type {Node} Input element for tabbing into the table */
+		tabInput: null
 	};
 
 	// DOM items
@@ -125,6 +129,13 @@ $.extend( KeyTable.prototype, {
 	enable: function ( state )
 	{
 		this.s.enable = state;
+	},
+
+	/**
+	 * Get enable status
+	 */
+	enabled: function () {
+		return this.s.enable;
 	},
 
 	/**
@@ -220,7 +231,10 @@ $.extend( KeyTable.prototype, {
 				}
 
 				// Or an Editor date input
-				if ( $(e.target).parents('div.editor-datetime').length ) {
+				if (
+					$(e.target).parents('div.editor-datetime').length ||
+					$(e.target).parents('div.dt-datetime').length 
+				) {
 					return;
 				}
 
@@ -272,6 +286,10 @@ $.extend( KeyTable.prototype, {
 					return;
 				}
 
+				if ( that.s.lastFocus && this !== that.s.lastFocus.cell.node() ) {
+					return;
+				}
+
 				that._editor( null, e, true );
 			} );
 
@@ -297,15 +315,21 @@ $.extend( KeyTable.prototype, {
 			} );
 		}
 
+		dt.on( 'column-visibility'+namespace, function (e) {
+			that._tabInput();
+		} );
+
 		// Redraw - retain focus on the current cell
 		dt.on( 'draw'+namespace, function (e) {
+			that._tabInput();
+
 			if ( that.s.focusDraw ) {
 				return;
 			}
 
 			var lastFocus = that.s.lastFocus;
 
-			if ( lastFocus && lastFocus.node && $(lastFocus.node).closest('body') === document.body ) {
+			if ( lastFocus ) {
 				var relative = that.s.lastFocus.relative;
 				var info = dt.page.info();
 				var row = relative.row + info.start;
@@ -447,8 +471,10 @@ $.extend( KeyTable.prototype, {
 				if ( editor ) {
 					// Got Editor - need to activate inline editing,
 					// set the value and submit
+					var options = that._inlineOptions(focused.cell.index());
+
 					editor
-						.inline( focused.cell.index() )
+						.inline(options.cell, options.field, options.options)
 						.set( editor.displayed()[0], pastedText )
 						.submit();
 				}
@@ -494,11 +520,21 @@ $.extend( KeyTable.prototype, {
 	 */
 	_editor: function ( key, orig, hardEdit )
 	{
+		// If nothing focused, we can't take any action
+		if (! this.s.lastFocus) {
+			return;	
+		}
+
+		// DataTables draw event
+		if (orig && orig.type === 'draw') {
+			return;
+		}
+
 		var that = this;
 		var dt = this.s.dt;
 		var editor = this.c.editor;
 		var editCell = this.s.lastFocus.cell;
-		var namespace = this.s.namespace;
+		var namespace = this.s.namespace + 'e' + editorNamespaceCounter++;
 
 		// Do nothing if there is already an inline edit in this cell
 		if ( $('div.DTE', editCell.node()).length ) {
@@ -517,15 +553,19 @@ $.extend( KeyTable.prototype, {
 			return;
 		}
 
-		orig.stopPropagation();
+		if ( orig ) {
+			orig.stopPropagation();
 
-		// Return key should do nothing - for textareas it would empty the
-		// contents
-		if ( key === 13 ) {
-			orig.preventDefault();
+			// Return key should do nothing - for textareas it would empty the
+			// contents
+			if ( key === 13 ) {
+				orig.preventDefault();
+			}
 		}
 
 		var editInline = function () {
+			var options = that._inlineOptions(editCell.index());
+
 			editor
 				.one( 'open'+namespace, function () {
 					// Remove cancel open
@@ -563,11 +603,16 @@ $.extend( KeyTable.prototype, {
 					} );
 
 					// Restore full key navigation on close
-					editor.one( 'close', function () {
+					editor.one( 'close'+namespace, function () {
 						dt.keys.enable( true );
 						dt.off( 'key-blur.editor' );
 						editor.off( namespace );
 						$( dt.table().container() ).removeClass('dtk-focus-alt');
+
+						if (that.s.returnSubmit) {
+							that.s.returnSubmit = false;
+							that._emitEvent( 'key-return-submit', [dt, editCell] );
+						}
 					} );
 				} )
 				.one( 'cancelOpen'+namespace, function () {
@@ -575,7 +620,7 @@ $.extend( KeyTable.prototype, {
 					// might be that the open event handler isn't needed
 					editor.off( namespace );
 				} )
-				.inline( editCell.index() );
+				.inline(options.cell, options.field, options.options);
 		};
 
 		// Editor 1.7 listens for `return` on keyup, so if return is the trigger
@@ -591,6 +636,20 @@ $.extend( KeyTable.prototype, {
 		else {
 			editInline();
 		}
+	},
+
+
+	_inlineOptions: function (cellIdx)
+	{
+		if (this.c.editorOptions) {
+			return this.c.editorOptions(cellIdx);
+		}
+
+		return {
+			cell: cellIdx,
+			field: undefined,
+			options: undefined
+		};
 	},
 
 
@@ -759,6 +818,10 @@ $.extend( KeyTable.prototype, {
 		}
 
 		var enable = this.s.enable;
+		this.s.returnSubmit = (enable === 'navigation-only' || enable === 'tab-only') && e.keyCode === 13
+			? true
+			: false;
+
 		var navEnable = enable === true || enable === 'navigation-only';
 		if ( ! enable ) {
 			return;
@@ -796,7 +859,7 @@ $.extend( KeyTable.prototype, {
 				break;
 
 			case 27: // esc
-				if ( this.s.blurable && enable === true ) {
+				if ( this.c.blurable && enable === true ) {
 					this._blur();
 				}
 				break;
@@ -942,13 +1005,17 @@ $.extend( KeyTable.prototype, {
 	 */
 	_shift: function ( e, direction, keyBlurable )
 	{
-		var that         = this;
-		var dt           = this.s.dt;
-		var pageInfo     = dt.page.info();
-		var rows         = pageInfo.recordsDisplay;
-		var currentCell  = this.s.lastFocus.cell;
-		var columns      = this._columns();
-
+		var that      = this;
+		var dt        = this.s.dt;
+		var pageInfo  = dt.page.info();
+		var rows      = pageInfo.recordsDisplay;
+		var columns   = this._columns();
+		var last      = this.s.lastFocus;
+		if ( ! last ) {
+			return;
+		}
+	
+		var currentCell  = last.cell;
 		if ( ! currentCell ) {
 			return;
 		}
@@ -973,6 +1040,16 @@ $.extend( KeyTable.prototype, {
 		var
 			row = currRow,
 			column = columns[ currCol ]; // row is the display, column is an index
+
+		// If the direction is rtl then the logic needs to be inverted from this point forwards
+		if($(dt.table().node()).css('direction') === 'rtl') {
+			if(direction === 'right') {
+				direction = 'left';
+			}
+			else if(direction === 'left'){
+				direction = 'right';
+			}
+		}
 
 		if ( direction === 'right' ) {
 			if ( currCol >= columns.length - 1 ) {
@@ -1020,8 +1097,8 @@ $.extend( KeyTable.prototype, {
 
 
 	/**
-	 * Create a hidden input element that can receive focus on behalf of the
-	 * table
+	 * Create and insert a hidden input element that can receive focus on behalf
+	 * of the table
 	 *
 	 * @private
 	 */
@@ -1037,22 +1114,32 @@ $.extend( KeyTable.prototype, {
 			return;
 		}
 
-		var div = $('<div><input type="text" tabindex="'+tabIndex+'"/></div>')
-			.css( {
-				position: 'absolute',
-				height: 1,
-				width: 0,
-				overflow: 'hidden'
-			} )
-			.insertBefore( dt.table().node() );
+		// Only create the input element once on first class
+		if (! this.s.tabInput) {
+			var div = $('<div><input type="text" tabindex="'+tabIndex+'"/></div>')
+				.css( {
+					position: 'absolute',
+					height: 1,
+					width: 0,
+					overflow: 'hidden'
+				} );
 
-		div.children().on( 'focus', function (e) {
-			var cell = dt.cell(':eq(0)', that._columns(), {page: 'current'});
+			div.children().on( 'focus', function (e) {
+				var cell = dt.cell(':eq(0)', that._columns(), {page: 'current'});
+	
+				if ( cell.any() ) {
+					that._focus( cell, null, true, e );
+				}
+			} );
 
-			if ( cell.any() ) {
-				that._focus( cell, null, true, e );
-			}
-		} );
+			this.s.tabInput = div;
+		}
+
+		// Insert the input element into the first cell in the table's body
+		var cell = this.s.dt.cell(':eq(0)', '0:visible', {page: 'current', order: 'current'}).node();
+		if (cell) {
+			$(cell).prepend(this.s.tabInput);
+		}
 	},
 
 	/**
@@ -1130,6 +1217,12 @@ KeyTable.defaults = {
 	editOnFocus: false,
 
 	/**
+	 * Options to pass to Editor's inline method
+	 * @type {function}
+	 */
+	editorOptions: null,
+
+	/**
 	 * Select a cell to automatically select on start up. `null` for no
 	 * automatic selection
 	 * @type {cell-selector}
@@ -1151,7 +1244,7 @@ KeyTable.defaults = {
 
 
 
-KeyTable.version = "2.5.1";
+KeyTable.version = "2.6.4";
 
 
 $.fn.dataTable.KeyTable = KeyTable;
@@ -1188,6 +1281,18 @@ DataTable.Api.register( 'keys.enable()', function ( opts ) {
 			ctx.keytable.enable( opts === undefined ? true : opts );
 		}
 	} );
+} );
+
+DataTable.Api.register( 'keys.enabled()', function ( opts ) {
+	var ctx = this.context;
+
+	if (ctx.length) {
+		return ctx[0].keytable
+			? ctx[0].keytable.enabled()
+			: false;
+	}
+
+	return false;
 } );
 
 DataTable.Api.register( 'keys.move()', function ( dir ) {

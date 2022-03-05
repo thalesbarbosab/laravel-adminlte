@@ -128,7 +128,7 @@ return [
     'classes_content' => '',
     'classes_sidebar' => 'sidebar-dark-primary elevation-4',
     'classes_sidebar_nav' => '',
-    'classes_topnav' => 'navbar-white navbar-light',
+    'classes_topnav' => 'navbar-dark', // 'navbar-white navbar-light',
     'classes_topnav_nav' => 'navbar-expand',
     'classes_topnav_container' => 'container',
 
@@ -225,14 +225,17 @@ return [
 
     'menu' => [
         [
-            'text' => 'search',
-            'search' => false,
-            'topnav' => true,
+            'type'           => 'darkmode-widget',
+            'topnav_right'   => true, // Or "topnav => true" to place on the left.
+            // 'icon_enabled'   => 'fas fa-moon',
+            // 'icon_disabled'  => 'fas fa-sun',
+            // 'color_enabled'  => 'white',
+            // 'color_disabled' => 'yellow'
         ],
         [
             'text' => 'Home',
             'url'  => 'home',
-            'icon' => 'fas fa-house-user',
+            'icon' => 'fas fa-home',
         ],
         [
             'text' => 'Dashboard',

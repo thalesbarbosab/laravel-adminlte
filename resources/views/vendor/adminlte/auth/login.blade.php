@@ -22,49 +22,56 @@
 
 @section('auth_body')
     <form action="{{ $login_url }}" method="post">
-        {{ csrf_field() }}
+        @csrf
 
         {{-- Email field --}}
         <div class="input-group mb-3">
-            <input type="email" name="email" class="form-control {{ $errors->has('email') ? 'is-invalid' : '' }}"
+            <input type="email" name="email" class="form-control @error('email') is-invalid @enderror"
                    value="{{ old('email') }}" placeholder="{{ __('adminlte::adminlte.email') }}" autofocus>
+
             <div class="input-group-append">
                 <div class="input-group-text">
                     <span class="fas fa-envelope {{ config('adminlte.classes_auth_icon', '') }}"></span>
                 </div>
             </div>
-            @if($errors->has('email'))
-                <div class="invalid-feedback">
-                    <strong>{{ $errors->first('email') }}</strong>
-                </div>
-            @endif
+
+            @error('email')
+                <span class="invalid-feedback" role="alert">
+                    <strong>{{ $message }}</strong>
+                </span>
+            @enderror
         </div>
 
         {{-- Password field --}}
         <div class="input-group mb-3">
-            <input type="password" id="input-senha" name="password" class="form-control {{ $errors->has('password') ? 'is-invalid' : '' }}"
+            <input type="password" name="password" class="form-control @error('password') is-invalid @enderror"
                    placeholder="{{ __('adminlte::adminlte.password') }}">
+
             <div class="input-group-append">
                 <div class="input-group-text">
-                    <button type="button" id="icon-mostrar-senha" class="btn btn-default btn-xs fas fa-eye-slash"> exibir</button> &nbsp;&nbsp;
                     <span class="fas fa-lock {{ config('adminlte.classes_auth_icon', '') }}"></span>
                 </div>
             </div>
-            @if($errors->has('password'))
-                <div class="invalid-feedback">
-                    <strong>{{ $errors->first('password') }}</strong>
-                </div>
-            @endif
+
+            @error('password')
+                <span class="invalid-feedback" role="alert">
+                    <strong>{{ $message }}</strong>
+                </span>
+            @enderror
         </div>
 
         {{-- Login field --}}
         <div class="row">
             <div class="col-7">
-                <div class="icheck-primary">
-                    <input type="checkbox" name="remember" id="remember">
-                    <label for="remember">{{ __('adminlte::adminlte.remember_me') }}</label>
+                <div class="icheck-primary" title="{{ __('adminlte::adminlte.remember_me_hint') }}">
+                    <input type="checkbox" name="remember" id="remember" {{ old('remember') ? 'checked' : '' }}>
+
+                    <label for="remember">
+                        {{ __('adminlte::adminlte.remember_me') }}
+                    </label>
                 </div>
             </div>
+
             <div class="col-5">
                 <button type=submit class="btn btn-block {{ config('adminlte.classes_auth_btn', 'btn-flat btn-primary') }}">
                     <span class="fas fa-sign-in-alt"></span>
@@ -95,22 +102,3 @@
         </p>
     @endif
 @stop
-
-@section('js')
-    <script>
-        function showPassword(icon_component, input_component, input_component_text){
-            icon_component.click(function() {
-                var input_type = input_component.attr('type') == 'password' ? 'text' : 'password';
-                input_component.attr('type', input_type);
-                icon_component.text()==" exibir" ? icon_component.text(" esconder") : icon_component.text(" exibir");
-                icon_component.hasClass('fas fa-eye') ? icon_component.removeClass('fas fa-eye').addClass('fas fa-eye-slash') : icon_component.removeClass('fas fa-eye-slash').addClass('fas fa-eye');
-            });
-        }
-        $(document).ready(function() {
-            var icon = $('#icon-mostrar-senha');
-            var input = $('#input-senha');
-            showPassword(icon,input,'mostrar senha');
-        });
-
-    </script>
-@endsection

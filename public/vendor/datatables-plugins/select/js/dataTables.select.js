@@ -1,16 +1,16 @@
-/*! Select for DataTables 1.3.1
- * 2015-2019 SpryMedia Ltd - datatables.net/license/mit
+/*! Select for DataTables 1.3.4-dev
+ * 2015-2021 SpryMedia Ltd - datatables.net/license/mit
  */
 
 /**
  * @summary     Select for DataTables
  * @description A collection of API methods, events and buttons for DataTables
  *   that provides selection options of the items in a DataTable
- * @version     1.3.1
+ * @version     1.3.4-dev
  * @file        dataTables.select.js
  * @author      SpryMedia Ltd (www.sprymedia.co.uk)
  * @contact     datatables.net/forums
- * @copyright   Copyright 2015-2019 SpryMedia Ltd.
+ * @copyright   Copyright 2015-2021 SpryMedia Ltd.
  *
  * This source file is free software, available under the following license:
  *   MIT license - http://datatables.net/license/mit
@@ -54,10 +54,52 @@ var DataTable = $.fn.dataTable;
 // Version information for debugger
 DataTable.select = {};
 
-DataTable.select.version = '1.3.1';
+DataTable.select.version = '1.3.4-dev';
 
 DataTable.select.init = function ( dt ) {
 	var ctx = dt.settings()[0];
+
+	if (ctx._select) {
+		return;
+	}
+
+	var savedSelected = dt.state.loaded();
+
+	var selectAndSave = function(e, settings, data) {
+		if(data === null || data.select === undefined) {
+			return;
+		}
+		dt.rows().deselect();
+		dt.columns().deselect();
+		dt.cells().deselect();
+		if (data.select.rows !== undefined) {
+			dt.rows(data.select.rows).select();
+		}
+		if (data.select.columns !== undefined) {
+			dt.columns(data.select.columns).select();
+		}
+		if (data.select.cells !== undefined) {
+			for(var i = 0; i < data.select.cells.length; i++) {
+				dt.cell(data.select.cells[i].row, data.select.cells[i].column).select();
+			}
+		}
+		dt.state.save();
+	}
+	
+	dt.one('init', function() {
+		dt.on('stateSaveParams', function(e, settings, data) {
+			data.select = {};
+			data.select.rows = dt.rows({selected:true}).ids(true).toArray();
+			data.select.columns = dt.columns({selected:true})[0];
+			data.select.cells = dt.cells({selected:true})[0].map(function(coords) {
+				return {row: dt.row(coords.row).id(true), column: coords.column}
+			});
+		})
+		
+		selectAndSave(undefined, undefined, savedSelected)
+		dt.on('stateLoaded stateLoadParams', selectAndSave)
+	})
+
 	var init = ctx.oInit.select;
 	var defaults = DataTable.defaults.select;
 	var opts = init === undefined ?
@@ -378,7 +420,7 @@ function enableMouseSelection ( dt )
 			}
 
 			var ctx = dt.settings()[0];
-			var wrapperClass = $.trim(dt.settings()[0].oClasses.sWrapper).replace(/ +/g, '.');
+			var wrapperClass = dt.settings()[0].oClasses.sWrapper.trim().replace(/ +/g, '.');
 
 			// Ignore clicks inside a sub-table
 			if ( $(e.target).closest('div.'+wrapperClass)[0] != dt.table().container() ) {
@@ -529,6 +571,7 @@ function info ( api )
  */
 function init ( ctx ) {
 	var api = new DataTable.Api( ctx );
+	ctx._select_init = true;
 
 	// Row callback so that classes can be added to rows and cells if the item
 	// was selected before the element was created. This will happen with the
@@ -560,7 +603,12 @@ function init ( ctx ) {
 
 	// On Ajax reload we want to reselect all rows which are currently selected,
 	// if there is an rowId (i.e. a unique value to identify each row with)
-	api.on( 'preXhr.dt.dtSelect', function () {
+	api.on( 'preXhr.dt.dtSelect', function (e, settings) {
+		if (settings !== api.settings()[0]) {
+			// Not triggered by our DataTable!
+			return;
+		}
+
 		// note that column selection doesn't need to be cached and then
 		// reselected, as they are already selected
 		var rows = api.rows( { selected: true } ).ids( true ).filter( function ( d ) {
@@ -592,12 +640,16 @@ function init ( ctx ) {
 	// Update the table information element with selected item summary
 	api.on( 'draw.dtSelect.dt select.dtSelect.dt deselect.dtSelect.dt info.dt', function () {
 		info( api );
+		api.state.save();
 	} );
 
 	// Clean up and release
 	api.on( 'destroy.dtSelect', function () {
+		api.rows({selected: true}).deselect();
+
 		disableMouseSelection( api );
 		api.off( '.dtSelect' );
+		$('body').off('.dtSelect' + _safeId(api.table().node()));
 	} );
 }
 
@@ -837,7 +889,7 @@ apiRegister( 'select.toggleable()', function ( flag ) {
 } );
 
 apiRegister( 'select.info()', function ( flag ) {
-	if ( info === undefined ) {
+	if ( flag === undefined ) {
 		return this.context[0]._select.info;
 	}
 
@@ -866,11 +918,15 @@ apiRegister( 'select.style()', function ( style ) {
 	}
 
 	return this.iterator( 'table', function ( ctx ) {
-		ctx._select.style = style;
+		if ( ! ctx._select ) {
+			DataTable.select.init( new DataTable.Api(ctx) );
+		}
 
 		if ( ! ctx._select_init ) {
-			init( ctx );
+			init(ctx);
 		}
+
+		ctx._select.style = style;
 
 		// Add / remove mouse event handlers. They aren't required when only
 		// API selection is available
@@ -975,7 +1031,7 @@ apiRegisterPlural( 'cells().select()', 'cell().select()', function ( select ) {
 	} );
 
 	this.iterator( 'table', function ( ctx, i ) {
-		eventTrigger( api, 'select', [ 'cell', api[i] ], true );
+		eventTrigger( api, 'select', [ 'cell', api.cells(api[i]).indexes().toArray() ], true );
 	} );
 
 	return this;
@@ -987,6 +1043,7 @@ apiRegisterPlural( 'rows().deselect()', 'row().deselect()', function () {
 
 	this.iterator( 'row', function ( ctx, idx ) {
 		ctx.aoData[ idx ]._select_selected = false;
+		ctx._select_lastCell = null;
 		$( ctx.aoData[ idx ].nTr ).removeClass( ctx._select.className );
 	} );
 
@@ -1035,7 +1092,9 @@ apiRegisterPlural( 'cells().deselect()', 'cell().deselect()', function () {
 	this.iterator( 'cell', function ( ctx, rowIdx, colIdx ) {
 		var data = ctx.aoData[ rowIdx ];
 
-		data._selected_cells[ colIdx ] = false;
+		if(data._selected_cells !== undefined) {
+			data._selected_cells[ colIdx ] = false;
+		}
 
 		// Remove class only if the cells exist, and the cell is not column
 		// selected, in which case the class should remain (since it is selected
