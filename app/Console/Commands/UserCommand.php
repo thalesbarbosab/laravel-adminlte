@@ -94,7 +94,7 @@ class UserCommand extends Command
         $this->info('Lets create a manually user, please set the questions bellow.');
         $this->newLine();
         $name = $this->ask('What is user name? (required)');
-        // $status = $this->anticipate('What is tuser status? (required) (actived, inactived, pre_registred)', ['actived','inactived','pre_registred']);
+        // $status = $this->anticipate('What is user status? (required) (actived, inactived, pre_registred)', ['actived','inactived','pre_registred']);
         $status = $this->choice('What is user status? (required)', ['actived','inactived','pre_registred']);
         $profile = $this->choice('What is user profile? (required)', ['administrator','user']);
         $gender = $this->choice('What is user gender? (required)', ['male','female']);
