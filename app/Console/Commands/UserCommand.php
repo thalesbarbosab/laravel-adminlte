@@ -53,15 +53,18 @@ class UserCommand extends Command
             $this->factory();
         }
         // Create
-        if($this->option('create'))
+        else if($this->option('create'))
         {
             $this->create();
         }
-
         // Show
-        if($this->option('show'))
+        else if($this->option('show'))
         {
            $this->show();
+        }
+        // Nobody option is selected
+        else{
+            $this->warn('Plese select any option to use this command!');
         }
     }
 
@@ -81,9 +84,8 @@ class UserCommand extends Command
                 $this->newLine(2);
                 return $this->info("$factory_count user(s) created successfully!");
             }
-
         }else{
-            return $this->warn('Please insert a interger value more than zero');
+            return $this->warn('Please insert a integer value more than zero');
         }
     }
 
