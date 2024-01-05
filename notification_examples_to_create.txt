@@ -1,0 +1,23 @@
+App\Models\Notification::create([
+    'icon'=>'fas fa-cog',
+    'text'=>'Ops! Houve um problema ao realizar rotina de manutenção do sistema!',
+    'alert' => 'danger'
+])
+
+App\Models\Notification::create([
+    'icon'=>'fas fa-database',
+    'text'=>'O backup da base de dados foi concluido com exito!',
+    'alert' => 'success'
+])
+
+App\Models\Notification::create([
+    'icon'=>'fas fa-users',
+    'text'=>'No dia anterior 421 novos usuários se registraram na plataforma.',
+    'alert' => 'info'
+])
+
+App\Models\Notification::create([
+    'icon'=>'fas fa-paper-plane',
+    'text'=>'Ops! Não foi possível enviar e-mail para o usuário.',
+    'alert' => 'warning'
+])
