@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\NotificationController;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -22,3 +24,6 @@ Auth::routes();
 
 Route::get('home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 Route::get('dashboard', [App\Http\Controllers\HomeController::class, 'dashboard'])->name('dashboard');
+Route::get('notifications/',[NotificationController::class,'index']);
+Route::get('notifications/new',[NotificationController::class,'getAllFormatedByAdminLte']);
+Route::get('notifications/update-unreaded',[NotificationController::class,'updateUnreaded'])->name('notification.update_unreaded');

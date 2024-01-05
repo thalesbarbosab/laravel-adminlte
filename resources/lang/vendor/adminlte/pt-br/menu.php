@@ -16,4 +16,6 @@ return [
     'Important'                     => 'Importante',
     'Warning'                       => 'Aviso',
     'Information'                   => 'Informação',
+    'notifications'                 => 'Notificações',
+    'all_notifications'             => 'Todas as notificações',
 ];
